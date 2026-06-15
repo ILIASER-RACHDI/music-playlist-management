@@ -2,43 +2,58 @@ name: build and sonar & run tests
 
 on:
   push:
-    branches: [ main, develop ]
+    branches:
+      - main
+      - develop
+
   pull_request:
-    branches: [ main, develop ]
+    branches:
+      - main
+      - develop
+
+  workflow_dispatch:
 
 jobs:
   build:
+
     runs-on: ubuntu-latest
 
     env:
       APP_NAME: ${{ secrets.APP_NAME }}
+
       DB_HOST: localhost
       DB_PORT: 5432
-      DB_NAME: playlist_db
-      DB_USERNAME: playlist_user
-      DB_PASSWORD: playlist_password
+      DB_NAME: ${{ secrets.DB_NAME }}
+      DB_USERNAME: ${{ secrets.DB_USERNAME }}
+      DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+
       JWT_SECRET: ${{ secrets.JWT_SECRET }}
       JWT_EXPIRATION_MINUTES: ${{ secrets.JWT_EXPIRATION_MINUTES }}
+
       SWAGGER_PATH: ${{ secrets.SWAGGER_PATH }}
-      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
     services:
       postgres:
+
         image: postgres:16
+
         env:
-          POSTGRES_DB: playlist_db
-          POSTGRES_USER: playlist_user
-          POSTGRES_PASSWORD: playlist_password
+          POSTGRES_DB: ${{ secrets.DB_NAME }}
+          POSTGRES_USER: ${{ secrets.DB_USERNAME }}
+          POSTGRES_PASSWORD: ${{ secrets.DB_PASSWORD }}
+
         ports:
           - 5432:5432
+
         options: >-
-          --health-cmd="pg_isready -U playlist_user -d playlist_db"
+          --health-cmd="pg_isready -U music_user -d music_password"
           --health-interval=10s
           --health-timeout=5s
           --health-retries=5
 
     steps:
-      - name: Checkout project
+
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Set up Java 21
@@ -48,12 +63,14 @@ jobs:
           java-version: 21
           cache: maven
 
+      - name: Grant execute permission for Maven wrapper
+        run: chmod +x mvnw
+
       - name: Build and run tests
-        run: mvn clean verify
+        run: ./mvnw clean verify
 
       - name: SonarCloud analysis
-        if: env.SONAR_TOKEN != ''
-        run: mvn sonar:sonar
+        run: ./mvnw sonar:sonar
         env:
-          SONAR_TOKEN: ${{ env.SONAR_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
